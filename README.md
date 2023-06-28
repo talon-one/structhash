@@ -2,6 +2,14 @@
 
 structhash is a Go library for generating hash strings of arbitrary data structures.
 
+## Fork
+
+The original package was forked since we intended to use the package to generate unique hash values in order to use them as cache keys.
+The package fits well with the exception of "nil values are treated equally to zero values".
+We need to be able to differentiate between a nil boolean pointer and the 'false' value.
+
+For this reason, whenever a `nil` value is encountered, we replace it with the string "__nil".
+
 ## Features
 
 * fields may be ignored or renamed (like in `json.Marshal`, but using different struct tag)
