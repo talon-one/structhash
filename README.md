@@ -8,7 +8,7 @@ The original package was forked since we intended to use the package to generate
 The package fits well with the exception of "nil values are treated equally to zero values".
 We need to be able to differentiate between a nil boolean pointer and the 'false' value.
 
-For this reason, whenever a `nil` value is encountered, we replace it with the string "__nil".
+For this reason, whenever a `nil` value is encountered, we replace it with the string "_nil".
 
 ## Features
 
