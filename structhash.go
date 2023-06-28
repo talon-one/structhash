@@ -86,6 +86,8 @@ func (e tagError) Error() string {
 
 type structFieldFilter func(reflect.StructField, *item) (bool, error)
 
+const nilPtrValue = "_nil"
+
 func writeValue(buf *bytes.Buffer, val reflect.Value, fltr structFieldFilter) {
 	switch val.Kind() {
 	case reflect.String:
@@ -105,43 +107,57 @@ func writeValue(buf *bytes.Buffer, val reflect.Value, fltr structFieldFilter) {
 			buf.WriteByte('f')
 		}
 	case reflect.Ptr:
-		if !val.IsNil() || val.Type().Elem().Kind() == reflect.Struct {
-			writeValue(buf, reflect.Indirect(val), fltr)
+		if val.IsNil() {
+			if val.Type().Elem().Kind() == reflect.Struct {
+				writeValue(buf, reflect.Indirect(val), fltr)
+			} else {
+				writeValue(buf, reflect.ValueOf(nilPtrValue), fltr)
+			}
 		} else {
-			writeValue(buf, reflect.Zero(val.Type().Elem()), fltr)
+			writeValue(buf, reflect.Indirect(val), fltr)
 		}
+
 	case reflect.Array, reflect.Slice:
-		buf.WriteByte('[')
-		len := val.Len()
-		for i := 0; i < len; i++ {
-			if i != 0 {
-				buf.WriteByte(',')
+		if val.IsNil() {
+			writeValue(buf, reflect.ValueOf(nilPtrValue), fltr)
+		} else {
+			buf.WriteByte('[')
+			len := val.Len()
+			for i := 0; i < len; i++ {
+				if i != 0 {
+					buf.WriteByte(',')
+				}
+				writeValue(buf, val.Index(i), fltr)
 			}
-			writeValue(buf, val.Index(i), fltr)
+			buf.WriteByte(']')
 		}
-		buf.WriteByte(']')
+
 	case reflect.Map:
-		mk := val.MapKeys()
-		items := make([]item, len(mk), len(mk))
-		// Get all values
-		for i, _ := range items {
-			items[i].name = formatValue(mk[i], fltr)
-			items[i].value = val.MapIndex(mk[i])
-		}
-
-		// Sort values by key
-		sort.Sort(itemSorter(items))
-
-		buf.WriteByte('[')
-		for i, _ := range items {
-			if i != 0 {
-				buf.WriteByte(',')
+		if val.IsNil() {
+			writeValue(buf, reflect.ValueOf(nilPtrValue), fltr)
+		} else {
+			mk := val.MapKeys()
+			items := make([]item, len(mk), len(mk))
+			// Get all values
+			for i, _ := range items {
+				items[i].name = formatValue(mk[i], fltr)
+				items[i].value = val.MapIndex(mk[i])
 			}
-			buf.WriteString(items[i].name)
-			buf.WriteByte(':')
-			writeValue(buf, items[i].value, fltr)
+
+			// Sort values by key
+			sort.Sort(itemSorter(items))
+
+			buf.WriteByte('[')
+			for i, _ := range items {
+				if i != 0 {
+					buf.WriteByte(',')
+				}
+				buf.WriteString(items[i].name)
+				buf.WriteByte(':')
+				writeValue(buf, items[i].value, fltr)
+			}
+			buf.WriteByte(']')
 		}
-		buf.WriteByte(']')
 	case reflect.Struct:
 		vtype := val.Type()
 		flen := vtype.NumField()
